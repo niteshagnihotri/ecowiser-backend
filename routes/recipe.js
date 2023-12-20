@@ -1,11 +1,13 @@
 import { Router } from 'express';
 import Recipe from '../models/recipe.js';
+import Image from '../models/image.js';
 
 const router = Router();
 
 router.get('/', async (req, res) => {
   try {
-    const recipes = await Recipe.find().populate('images');
+    const userId = req.userId;
+    const recipes = await Recipe.find({user_created: userId}).populate('images');
     res.json({ recipes });
   } catch (error) {
     console.error('Error retrieving recipes:', error);
@@ -16,13 +18,15 @@ router.get('/', async (req, res) => {
 router.post('/',  async (req, res) => {
   try {
     const { title, ingredients, steps, description, images } = req.body;
+    const userId = req.userId;
 
     const newRecipe = new Recipe({
       title,
       ingredients,
       steps,
       description,
-      images
+      images,
+      user_created: userId
     });
 
     const savedRecipe = await newRecipe.save();
@@ -37,8 +41,8 @@ router.post('/',  async (req, res) => {
 router.get('/:recipeId', async (req, res) => {
   try {
     const { recipeId } = req.params;
-    const recipe = await Recipe.findById(recipeId).populate('images');
-
+    const userId = req.userId;
+    const recipe = await Recipe.find({_id: recipeId, user_created: userId}).populate('images').populate('ingredients');
     if (!recipe) {
       return res.status(404).json({ error: 'Recipe not found' });
     }
@@ -51,10 +55,11 @@ router.get('/:recipeId', async (req, res) => {
 
 router.patch('/:recipeId', async (req, res) => {
   const { recipeId } = req.params;
+  const userId = req.userId;
 
   try {
     const updatedRecipe = await Recipe.findOneAndUpdate(
-      { _id: recipeId },
+      { _id: recipeId, user_created: userId },
       { $set: req.body },
       { new: true }
     );
@@ -72,8 +77,22 @@ router.patch('/:recipeId', async (req, res) => {
 
 router.delete('/:recipeId', async (req, res) => {
   const { recipeId } = req.params;
+  const userId = req.userId;
   try {
-    const deletedRecipe = await Recipe.deleteOne({ _id: recipeId });
+    // Find the recipe to get the image IDs
+    const recipe = await Recipe.findOne({ _id: recipeId, user_created: userId });
+
+    if (!recipe) {
+      return res.status(404).json({ error: 'Recipe not found' });
+    }
+
+    // Extract image IDs from the recipe
+    const imageIds = recipe.images;
+
+    // Delete images by their IDs
+    await Image.deleteMany({ _id: { $in: imageIds } });
+
+    const deletedRecipe = await Recipe.deleteOne({ _id: recipeId, user_created: userId });
 
     if (deletedRecipe.deletedCount === 0) {
       return res.status(404).json({ error: 'Recipe not found' });

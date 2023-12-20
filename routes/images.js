@@ -7,19 +7,38 @@ const upload = multer();
 
 router.post('/upload', upload.single('image'), async (req, res) => {
   try {
+    const base64String = req.file.buffer.toString('base64');
+    let imageUrl = `data:${req.file.mimetype};base64,${base64String}`
+
     const newImage = new Image({
-      data: req.file.buffer,
-      contentType: req.file.mimetype,
+      data: imageUrl
     });
 
     const savedImage = await newImage.save();
 
-    res.json({ imageId: savedImage._id });
+    res.json({ data: savedImage });
   } catch (error) {
     console.error('Error uploading image:', error);
     res.status(500).json({ error: 'Internal Server Error' });
   }
 });
+
+
+router.get('/:imageId', async (req, res) => {
+  try {
+    const { imageId } = req.params;
+    const image = await Image.findById(imageId);
+
+    if (!image) {
+      return res.status(404).json({ error: 'image not found' });
+    }
+    res.json({ image });
+  } catch (error) {
+    console.error('Error fetching image:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 
 router.delete('/delete/:imageId', async (req, res) => {
   const { imageId } = req.params;

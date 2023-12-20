@@ -32,10 +32,9 @@ router.post('/login', async (req, res) => {
       return res.status(401).json({ error: 'Invalid username or password' });
     }
 
-    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '1h' });
+    const token = jwt.sign({ userId: user._id }, process.env.JWT_SECRET, { expiresIn: '24h' });
 
-    // Set the JWT token in a cookie
-    res.cookie('jwt', token, { httpOnly: true, maxAge: 3600000 }); // Max age in milliseconds (1 hour)
+    res.cookie('access-token', token, { httpOnly: true, maxAge: 86400000 }); 
 
     res.json({ message: 'Login successful', token });
   } catch (error) {
@@ -46,7 +45,7 @@ router.post('/login', async (req, res) => {
 
 router.post('/logout', (req, res) => {
   // Clear the JWT cookie to log the user out
-  res.clearCookie('jwt');
+  res.clearCookie('access-token');
   res.json({ message: 'User logged out successfully' });
 });
 
