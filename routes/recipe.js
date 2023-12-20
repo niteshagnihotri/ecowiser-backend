@@ -1,8 +1,31 @@
 import { Router } from 'express';
 import Recipe from '../models/recipe.js';
 import Image from '../models/image.js';
+import Ingredient from '../models/ingredient.js';
 
 const router = Router();
+
+router.get('/search', async (req, res) => {
+  try {
+    const { query } = req.query;
+    const userId = req.userId;
+
+    const regex = new RegExp(query, 'i');
+    const recipes = await Recipe.find({
+      user_created: userId,
+      $or: [
+        { title: { $regex: regex } },
+        { 'ingredients': { $in: await Ingredient.find({ label: { $regex: regex } }).select('_id') } },
+      ],
+    }).populate('ingredients').populate('images');
+
+    res.json({ recipes });
+  } catch (error) {
+    console.error('Error searching recipes:', error);
+    res.status(500).json({ error: 'Internal Server Error' });
+  }
+});
+
 
 router.get('/', async (req, res) => {
   try {
